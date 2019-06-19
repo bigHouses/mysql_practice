@@ -1,0 +1,556 @@
+-- 1.创建表
+-- 2.查询“生物”课程比“物理”课程成绩高的所有学生的学号
+SELECT 
+	sw.`student_id`,sw.number 生物成绩,wl.number 物理成绩 
+FROM 
+	-- 生物成绩
+	(SELECT score.`student_id`,score.`number` FROM score WHERE score.`corse_id`=(SELECT c.`cid` FROM course c WHERE c.`cname`="生物")) sw,
+	-- 物理成绩
+	(SELECT score.`student_id`,score.`number` FROM score WHERE score.`corse_id`=(SELECT c.`cid` FROM course c WHERE c.`cname`="物理")) wl
+WHERE
+	sw.number>wl.number AND sw.student_id=wl.student_id;
+	
+-- 第二题的另一种方法
+SELECT
+	s1.`student_id`,
+	s1.`number` 生物成绩,
+	s2.`number` 物理成绩
+FROM
+	score s1,
+	score s2,
+	course c1,
+	course c2
+WHERE
+	s1.`corse_id`=c1.`cid`
+	AND c1.`cname`='生物'
+	AND s2.`corse_id`=c2.`cid`
+	AND c2.`cname`='物理'
+	AND s1.`student_id`=s2.`student_id`
+	AND s1.`number`>s2.`number`;
+
+-- 3、查询平均成绩大于60分的同学的学号和平均成绩；
+SELECT 
+  s.`student_id`,
+  AVG(s.`number`) 平均成绩 
+FROM
+  score s 
+GROUP BY s.`student_id` 
+HAVING 平均成绩 > 60 ;
+
+-- 4、查询所有同学的学号、姓名、选课数、总成绩；
+SELECT 
+  stu.`sid`,
+  stu.`sname` 姓名,
+  COUNT(s.`corse_id`) 选课数,
+  IFNULL(SUM(s.`number`),0) 总成绩 
+FROM
+	score s
+RIGHT JOIN 
+	student stu 
+ON
+	s.`student_id` = stu.`sid` 
+GROUP BY stu.`sid`;
+
+-- 5、查询姓“李”的老师的个数；
+SELECT COUNT(tname) 姓“李”的老师的个数 FROM teacher WHERE tname LIKE "李%";
+ 
+-- 6、查询没学过“李平”老师课的同学的学号、姓名；
+SELECT
+	stu.`sid`,
+	stu.`sname`
+FROM
+	student stu,
+(SELECT 
+	DISTINCT t1.student_id
+FROM
+	score t1,
+	(SELECT course.`cid` FROM course WHERE course.`teacher_id`=(SELECT teacher.`tid` FROM teacher WHERE teacher.`tname`="李平老师")) t2
+WHERE
+	t1.corse_id = t2.cid) t 
+WHERE
+	stu.`sid` != t.student_id
+GROUP BY
+	stu.`sid`
+HAVING
+	COUNT(*)=
+	(SELECT COUNT(1) FROM (SELECT 
+		DISTINCT t1.student_id
+	FROM
+		score t1,
+		(SELECT course.`cid` FROM course WHERE course.`teacher_id`=(SELECT teacher.`tid` FROM teacher WHERE teacher.`tname`="李平老师")) t2
+	WHERE
+		t1.corse_id = t2.cid) t);
+	
+-- 7、查询学过“1”并且也学过编号“2”课程的同学的学号、姓名；
+SELECT
+	 stu.`sid`,
+	stu.`sname`
+FROM
+	score s,
+	student stu
+WHERE
+	(s.`corse_id`=1 OR s.`corse_id`=2) AND s.`student_id`=stu.`sid`
+GROUP BY
+	stu.`sid`
+HAVING
+	COUNT(1)=2;
+
+-- 8、查询学过“李平”老师所教的所有课的同学的学号、姓名；
+SELECT
+	DISTINCT s.`student_id`,
+	stu.`sname`
+FROM
+	score s,
+	student stu,
+	(SELECT cid FROM course WHERE teacher_id=(SELECT tid FROM teacher WHERE tname="李平老师")) c
+WHERE
+	s.`corse_id`=c.cid
+	AND s.`student_id`=stu.`sid`
+GROUP BY
+	s.`sid`;
+
+-- 9、查询课程编号“2”的成绩比课程编号“1”课程低的所有同学的学号、姓名；
+SELECT
+	stu.`sid`,
+	stu.`sname`
+FROM
+	student stu,
+	(SELECT s.`student_id`,s.`number` FROM score s WHERE s.`corse_id`=1) s1,
+	(SELECT s.`student_id`,s.`number` FROM score s WHERE s.`corse_id`=2) s2
+WHERE
+	s1.`student_id`=s2.`student_id`
+	AND s1.`student_id`=stu.`sid`
+	AND IFNULL(s1.number,0)>IFNULL(s2.number,0);
+
+-- 10、查询有课程成绩小于60分的同学的学号、姓名；
+SELECT
+	DISTINCT stu.`sid`,
+	stu.`sname`
+FROM
+	score s,
+	student stu
+WHERE
+	s.`number`<60
+	AND s.`student_id`=stu.`sid`;
+
+-- 11、查询没有学全所有课的同学的学号、姓名；
+SELECT
+	stu.`sid`,
+	stu.`sname`
+FROM
+	score s
+RIGHT JOIN
+	student stu
+ON
+	s.`student_id`=stu.`sid`
+GROUP BY
+	stu.`sid`
+HAVING
+	COUNT(s.`corse_id`)<4;
+
+-- 12、查询至少有一门课与学号为“1”的同学所学相同的同学的学号和姓名；
+SELECT
+	stu.`sid`,
+	stu.`sname`
+FROM
+	score s,
+	student stu,
+	(SELECT score.`corse_id` cid FROM score WHERE score.`student_id`=1) c
+WHERE
+	s.`student_id`=stu.`sid`
+	AND s.`corse_id` = c.cid
+GROUP BY
+	stu.`sid`;
+	
+-- 13、查询至少学过学号为“1”同学所选课程中任意一门课的其他同学学号和姓名；
+SELECT
+	stu.`sid`,
+	stu.`sname`
+FROM
+	score s,
+	student stu,
+	(SELECT score.`corse_id` cid FROM score WHERE score.`student_id`=1) c
+WHERE
+	s.`student_id`=stu.`sid`
+	AND s.`corse_id` = c.cid
+	AND s.`student_id`!=1
+GROUP BY
+	stu.`sid`;
+
+-- 14、查询和“2”号的同学学习的课程完全相同的其他同学学号和姓名；
+
+SELECT
+	s.`student_id`,
+	stu.`sname`
+FROM
+	score s,
+	student stu,
+	(SELECT score.`corse_id` cid FROM score WHERE score.`student_id`=2) c,
+	(SELECT score.`student_id` sid,COUNT(1) cc FROM score GROUP BY score.`student_id`) cou
+WHERE
+	s.`student_id`=stu.`sid`
+	AND s.`student_id`=cou.sid
+	AND s.`corse_id`=c.cid
+	AND cou.cc=3
+GROUP BY
+	s.`student_id`
+HAVING
+	COUNT(s.`corse_id`)=3
+
+-- 15.删除学习“李平”老师课的sc表记录
+DELETE FROM score WHERE score.`corse_id`=2 OR score.`corse_id`=4;
+
+-- 16、向SC表中插入一些记录，这些记录要求符合以下条件：①没有上过编号“002”课程的同学学号；②插入“002”号课程的平均成绩；?
+INSERT INTO score VALUES(NULL,1,2,60);
+INSERT INTO score VALUES(NULL,2,2,60);
+
+-- 17、按平均成绩从低到高显示所有学生的“生物”、“物理”、“体育”
+SELECT
+	t1.sid,
+	t1.cou 有效课程数,
+	IFNULL(t2.生物,0) 生物,
+	IFNULL(t3.物理,0) 物理,
+	IFNULL(t4.体育,0) 体育,
+	IFNULL((t2.生物+t3.物理+t4.体育)/t1.cou,0) 平均成绩
+FROM
+ (SELECT stu.`sid`,COUNT(s.`corse_id`) cou FROM score s RIGHT JOIN student stu ON s.`student_id`=stu.`sid` GROUP BY stu.`sid`) t1, -- 选课数
+ (SELECT stu.`sid`,IFNULL(s.`number`,0) 生物 FROM score s RIGHT JOIN student stu ON stu.`sid`=s.`student_id` AND s.`corse_id`=1) t2,-- 生物
+ (SELECT stu.`sid`,IFNULL(s.`number`,0) 物理 FROM score s RIGHT JOIN student stu ON stu.`sid`=s.`student_id` AND s.`corse_id`=2) t3,-- 物理
+ (SELECT stu.`sid`,IFNULL(s.`number`,0) 体育 FROM score s RIGHT JOIN student stu ON stu.`sid`=s.`student_id` AND s.`corse_id`=3) t4-- 体育
+WHERE
+	t1.sid=t2.sid
+	AND t1.sid=t3.sid
+	AND t1.sid=t4.sid
+ORDER BY
+	平均成绩;
+
+-- 18、查询各科成绩最高和最低的分：以如下形式显示：课程ID，最高分，最低分；
+
+SELECT
+	c.cid,
+	MAX(s.`number`)
+FROM
+	score s
+RIGHT JOIN
+	(SELECT cid FROM course) c
+ON
+	s.`corse_id`=c.cid
+GROUP BY
+	s.`corse_id`;
+
+-- 19、按各科平均成绩从低到高和及格率的百分数从高到低顺序；
+-- 平均成绩从低到高
+SELECT
+	c.cid,
+	AVG(IFNULL(s.`number`,0))
+FROM
+	score s
+RIGHT JOIN
+	(SELECT cid FROM course) c
+ON
+	s.`corse_id`=c.cid
+GROUP BY
+	c.cid;
+-- 及格率从高到低
+SELECT
+	c.`cid`,
+	IFNULL(npass.npass/n.n,0) 及格率
+FROM
+	course c
+LEFT JOIN
+	(SELECT corse_id id,COUNT(number) n FROM score GROUP BY corse_id) n
+ON
+	c.`cid`=n.id
+LEFT JOIN
+	(SELECT corse_id id,COUNT(number) npass  FROM score WHERE number>=60 GROUP BY corse_id) npass
+ON
+	c.`cid`=npass.id
+ORDER BY
+	及格率 DESC;
+
+-- 20、课程平均分从高到低显示（现实任课老师）
+SELECT t.`tid` FROM teacher t;
+SELECT 
+	t.`tname`,
+	c.`cname`,
+	C.`cid`,
+	AVG(s.`number`) 平均成绩
+FROM
+	score s,
+	teacher t,
+	course c
+WHERE
+	t.`tid`=c.`teacher_id`
+	AND c.`cid`=s.`corse_id`
+GROUP BY
+	c.`cname`
+ORDER BY
+	平均成绩 DESC;
+	
+-- 21、查询各科成绩前三名的记录:(不考虑成绩并列情况)?
+SELECT
+	c.`cname`,
+	(SELECT s2.number FROM score s2 WHERE s2.`corse_id`=s1.`corse_id` ORDER BY s2.number DESC LIMIT 0,1) 第一名,
+	(SELECT s2.number FROM score s2 WHERE s2.`corse_id`=s1.`corse_id` ORDER BY s2.number DESC LIMIT 1,1) 第二名,
+	(SELECT s2.number FROM score s2 WHERE s2.`corse_id`=s1.`corse_id` ORDER BY s2.number DESC LIMIT 2,1) 第三名
+FROM
+	score s1,
+	course c
+WHERE
+	s1.`corse_id`=c.`cid`
+GROUP BY
+	s1.`corse_id`;
+
+-- 22、查询每门课程被选修的学生数；
+SELECT
+	c.`cname`,
+	COUNT(s.`number`) 学生数
+FROM
+	score s,
+	course c
+WHERE
+	s.`corse_id`=c.`cid`
+
+GROUP BY
+	s.`corse_id`
+
+-- 23、查询出只选修了一门课程的全部学生的学号和姓名；
+SELECT
+	s.`student_id`,
+	stu.`sname`,
+	COUNT(s.`corse_id`)
+FROM
+	score s,
+	student stu
+WHERE
+	s.`student_id`=stu.`sid`
+GROUP BY
+	s.`student_id`
+HAVING
+	COUNT(s.`corse_id`)=1;
+
+-- 24、查询男生、女生的人数；
+SELECT
+	stu.`gender` 性别,
+	COUNT(stu.`gender`) 人数
+FROM
+	student stu
+GROUP BY
+	stu.`gender`;
+
+-- 25、查询姓“张”的学生名单；
+SELECT
+	stu.`sid`,
+	stu.`sname`
+FROM
+	student stu
+WHERE
+	stu.`sname` LIKE "张%";
+
+-- 26、查询同名同姓学生名单，并统计同名人数；
+SELECT
+	stu1.`sname`,
+	COUNT(stu1.`sname`) 同名人数
+FROM
+	student stu1,
+	student stu2
+WHERE
+	stu1.`sname`=stu2.`sname`
+	AND stu1.`sid`!=stu2.`sid`;
+
+-- 27、查询每门课程的平均成绩，结果按平均成绩升序排列，平均成绩相同时，按课程号降序排列；
+SELECT
+	c.`cname`,
+	AVG(s.`number`) avge
+FROM
+	score s,
+	course c
+WHERE
+	s.`corse_id`=c.`cid`
+GROUP BY
+	s.`corse_id`
+ORDER BY
+	avge, s.`corse_id` DESC;
+
+-- 28、查询平均成绩大于85的所有学生的学号、姓名和平均成绩；
+SELECT
+	s.`student_id`,
+	stu.`sname`,
+	AVG(s.`number`) avge
+FROM
+	score s,
+	student stu
+WHERE
+	s.`student_id`=stu.`sid`
+GROUP BY
+	s.`student_id`
+HAVING
+	avge>85;
+
+-- 29、查询课程名称为“生物”，且分数低于60的学生姓名和分数；
+SELECT
+	stu.`sname`,
+	c.`cname`,
+	s.`number`
+FROM
+	course c,
+	score s,
+	student stu
+WHERE
+	c.`cname`="生物"
+	AND s.`student_id`=stu.`sid`
+	AND s.`number`<60;
+
+-- 30、查询课程编号为003且课程成绩在80分以上的学生的学号和姓名；
+SELECT
+	stu.`sid`,
+	stu.`sname`,
+	s.`number`
+FROM
+	score s,
+	course c,
+	student stu
+WHERE
+	s.`number`>80
+	AND s.`student_id`=stu.`sid`
+	AND c.`cid`=3
+	AND c.`cid`=s.`corse_id`;
+
+-- 31、求选了课程的学生人数
+SELECT
+	COUNT(1) 选课学生数
+FROM
+	(SELECT
+		s.`student_id`
+	FROM
+		score s
+	GROUP BY
+		s.`student_id`) t;
+
+-- 32、查询选修“刘海燕”老师所授课程的学生中，成绩最高的学生姓名及其成绩；
+SELECT
+	s1.`student_id`,
+	stu.`sname`,
+	s1.`number`
+FROM
+	score s1,
+	(SELECT
+		MAX(s.`number`) 最高成绩
+	FROM
+		course c,
+		score s,
+		teacher t
+	WHERE
+		t.`tname`="刘海燕老师"
+	AND c.`teacher_id`=t.`tid`
+	AND c.`cid`=s.`corse_id`) s2,
+	student stu
+WHERE
+	s1.`number`=s2.最高成绩
+	AND stu.`sid`=s1.`student_id`;
+	
+-- 33、查询各个课程及相应的选修人数；
+SELECT
+	c.`cname`,
+	COUNT(s.`student_id`)
+FROM
+	score s,
+	course c
+WHERE
+	c.`cid`=s.`corse_id`
+GROUP BY
+	s.`corse_id`;
+
+-- 34、查询不同课程但成绩相同的学生的学号、课程号、学生成绩；
+SELECT
+	s1.`student_id`,
+	s1.`corse_id`,
+	stu.`sname`
+FROM
+	score s1,
+	score s2,
+	student stu
+WHERE
+	s1.`student_id`=stu.`sid`
+	AND s1.`student_id`=s2.`student_id`
+	AND s1.`corse_id`!=s2.`corse_id`
+	AND s1.`number`=s2.`number`;
+-- 35、查询每门课程成绩最好的前两名；
+SELECT
+	s1.`corse_id` cid,
+	(SELECT stu.sname FROM score s2, student stu WHERE stu.sid=s2.student_id AND s2.`corse_id`=s1.`corse_id` ORDER BY s2.`number` DESC LIMIT 0,1) 第一名,
+	(SELECT s2.`number` FROM score s2 WHERE s2.`corse_id`=s1.`corse_id` ORDER BY s2.`number` DESC LIMIT 0,1) 第一名成绩,
+	(SELECT stu.sname FROM score s2, student stu WHERE stu.sid=s2.student_id AND s2.`corse_id`=s1.`corse_id` ORDER BY s2.`number` DESC LIMIT 1,1) 第二名,
+	(SELECT s2.`number` FROM score s2 WHERE s2.`corse_id`=s1.`corse_id` ORDER BY s2.`number` DESC LIMIT 1,1) 第二名成绩
+FROM
+	score s1
+GROUP BY
+	s1.`corse_id`
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
